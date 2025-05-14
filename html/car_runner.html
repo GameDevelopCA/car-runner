@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Vertical Car Runner</title>
+  <style>
+    body {
+      margin: 0;
+      background: #222;
+    }
+
+    canvas {
+      display: block;
+      margin: auto;
+      background: #eee;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="game" width="400" height="600"></canvas>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    // Constants
+    const LANE_COUNT = 5;
+    const LANE_WIDTH = canvas.width / LANE_COUNT;
+    const PLAYER_WIDTH = 40;
+    const PLAYER_HEIGHT = 40;
+    const OBJECT_SIZE = 40;
+    const SCROLL_SPEED = 2;
+    const MAX_SCROLL = 3000;
+
+    let player = {
+      lane: 2,
+      y: canvas.height - 100,
+      hp: 100
+    };
+
+    let scrollOffset = 0;
+    let objects = []; // { lane, y, type: 'obstacle' | 'item', hit: false }
+
+    function spawnObject() {
+      const lane = Math.floor(Math.random() * LANE_COUNT);
+      const y = -OBJECT_SIZE - Math.random() * 300;
+
+      const MIN_VERTICAL_GAP = OBJECT_SIZE * 1.5;
+
+      // Ensure no other object too close in vertical distance
+      const tooClose = objects.some(obj => Math.abs(obj.y - y) < MIN_VERTICAL_GAP);
+      if (tooClose) return;
+
+      // 80% chance for obstacle, 20% chance for item
+      const type = Math.random() < 0.8 ? 'obstacle' : 'item';
+
+      objects.push({ lane, y, type, hit: false });
+    }
+
+    function movePlayer(dir) {
+      if (dir === 'left' && player.lane > 0) player.lane--;
+      if (dir === 'right' && player.lane < LANE_COUNT - 1) player.lane++;
+      if (dir === 'up') player.y -= 20;
+      if (dir === 'down') player.y += 20;
+    }
+
+    function update() {
+      scrollOffset += SCROLL_SPEED;
+
+      for (let obj of objects) {
+        obj.y += SCROLL_SPEED;
+      }
+
+      objects = objects.filter(obj => obj.y < canvas.height + OBJECT_SIZE);
+
+      // Collision detection
+      for (let obj of objects) {
+        if (!obj.hit &&
+          obj.lane === player.lane &&
+          Math.abs(obj.y - player.y) < PLAYER_HEIGHT) {
+          obj.hit = true;
+
+          if (obj.type === 'obstacle') {
+            player.hp -= 20;
+          } else if (obj.type === 'item') {
+            player.hp = Math.min(100, player.hp + 20); // Restore but cap at 100
+          }
+        }
+      }
+
+      objects = objects.filter(obj => !obj.hit);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw lanes
+      for (let i = 1; i < LANE_COUNT; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * LANE_WIDTH, 0);
+        ctx.lineTo(i * LANE_WIDTH, canvas.height);
+        ctx.strokeStyle = '#bbb';
+        ctx.stroke();
+      }
+
+      // Draw player
+      ctx.fillStyle = 'blue';
+      const px = player.lane * LANE_WIDTH + (LANE_WIDTH - PLAYER_WIDTH) / 2;
+      ctx.fillRect(px, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
+
+      // Draw objects
+      for (let obj of objects) {
+        const ox = obj.lane * LANE_WIDTH + (LANE_WIDTH - OBJECT_SIZE) / 2;
+        ctx.fillStyle = obj.type === 'obstacle' ? 'red' : 'green';
+        ctx.fillRect(ox, obj.y, OBJECT_SIZE, OBJECT_SIZE);
+      }
+
+      // HUD
+      ctx.fillStyle = 'black';
+      ctx.font = '16px sans-serif';
+      ctx.fillText(`HP: ${player.hp}`, 10, 20);
+      ctx.fillText(`Distance: ${scrollOffset}`, 10, 40);
+
+      // Win/Lose
+      if (player.hp <= 0) {
+        setTimeout(() => {
+          alert('Game Over! You lost.');
+          location.reload();
+        }, 10);
+      } else if (scrollOffset >= MAX_SCROLL) {
+        setTimeout(() => {
+          alert('Congratulations! You win!');
+          location.reload();
+        }, 10);
+      }
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      if (Math.random() < 0.04) spawnObject();
+      requestAnimationFrame(gameLoop);
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowLeft') movePlayer('left');
+      if (e.key === 'ArrowRight') movePlayer('right');
+      if (e.key === 'ArrowUp') movePlayer('up');
+      if (e.key === 'ArrowDown') movePlayer('down');
+    });
+
+    gameLoop();
+  </script>
+
+
+</body>
+
+</html>
